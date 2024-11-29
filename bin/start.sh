@@ -1,18 +1,18 @@
 #!/bin/bash
 
-# Source configuration and utility functions
+# load all
 source "$(dirname "$0")/../config/settings.sh"
 source "$(dirname "$0")/../lib/util.sh"
 source "$(dirname "$0")/../schedule/tasks.sh"
 source "$(dirname "$0")/../.env"
 
-# First, clean up any existing tasks
+# clean up any existing tasks
 remove_all_tasks
 
-# Create log directory
+# create log directory
 mkdir -p "$LOG_DIR"
 
-# Register each task
+# register all task
 for task in $TASKS; do
     schedule_var="${task}_schedule"
     command_var="${task}_command"
@@ -30,5 +30,5 @@ for task in $TASKS; do
     log "Registered task '$task' with schedule '$schedule'"
 done
 
-# Keep container running
+# keep container running
 tail -f /dev/null
