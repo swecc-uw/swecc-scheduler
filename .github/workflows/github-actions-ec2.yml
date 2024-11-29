@@ -33,7 +33,7 @@ jobs:
         docker pull ${{ secrets.DOCKERHUB_USERNAME }}/swecc-scheduler:latest
         
         docker run -d --name scheduler \
-          --network swecc-server_default \
+          --network swag-network \
           -e ENV=prod \
           --restart unless-stopped \
           ${{ secrets.DOCKERHUB_USERNAME }}/swecc-scheduler:latest
