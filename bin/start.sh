@@ -1,10 +1,10 @@
 #!/bin/bash
 
 # load all
-source "$(dirname "$0")/../config/settings.sh"
-source "$(dirname "$0")/../lib/util.sh"
-source "$(dirname "$0")/../schedule/tasks.sh"
-source "$(dirname "$0")/../.env"
+source "/app/.env"
+source "/app/config/settings.sh"
+source "/app/lib/util.sh"
+source "/app/schedule/tasks.sh"
 
 # clean up any existing tasks
 remove_all_tasks

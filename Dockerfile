@@ -18,6 +18,7 @@ COPY schedule/ /app/schedule/
 COPY config/ /app/config/
 COPY .env.local /app/.env.local
 COPY .env.prod /app/.env.prod
+COPY .env.secret /app/.env.secret
 COPY entrypoint.sh /app/entrypoint.sh
 
 # make scripts executable

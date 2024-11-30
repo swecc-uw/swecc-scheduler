@@ -9,6 +9,7 @@ if [ "$ENV" = "prod" ]; then
 else
     cp /app/.env.local /app/.env
 fi
+cat /app/.env.secret >> /app/.env
 
 # export all
 source /app/.env

@@ -34,6 +34,7 @@ jobs:
         
         docker run -d --name scheduler \
           --network swag-network \
-          -e ENV=prod \
+          -e ENV=prod  \
+          -e SCHEDULER_API_KEY=${{ secrets.SCHEDULER_API_KEY }} \
           --restart unless-stopped \
           ${{ secrets.DOCKERHUB_USERNAME }}/swecc-scheduler:latest
