@@ -26,17 +26,23 @@ jobs:
         tags: |
           ${{ secrets.DOCKERHUB_USERNAME }}/swecc-scheduler:latest
           ${{ secrets.DOCKERHUB_USERNAME }}/swecc-scheduler:${{ github.sha }}
-    
+
     - name: Deploy scheduler service
       run: |
         # Remove the existing service if it exists
         docker service rm scheduler || true
         
-        # Create the service with environment variables
+        # Extract environment variables from config
+        docker config inspect scheduler_env --pretty | sed -n '/Data:/,$ p' | sed '1d' > env_file.txt
+
+        # Deploy the service with the env file
         docker service create \
           --name scheduler \
-          --network swecc_stack_swecc-network \
-          --config scheduler_env\
+          --network swecc-network \
+          --env-file env_file.txt \
           --replicas 1 \
           --restart-condition any \
           ${{ secrets.DOCKERHUB_USERNAME }}/swecc-scheduler:latest
+
+        # Clean up
+        rm env_file.txt
