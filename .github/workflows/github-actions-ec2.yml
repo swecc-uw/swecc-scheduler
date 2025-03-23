@@ -30,7 +30,7 @@ jobs:
     - name: Deploy scheduler service
       run: |
         # Remove the existing service if it exists
-        docker service rm scheduler || true
+        docker service rm swecc_stack_scheduler || true
         
         # Extract environment variables from config
         docker config inspect scheduler_env --pretty | sed -n '/Data:/,$ p' | sed '1d' > env_file.txt
