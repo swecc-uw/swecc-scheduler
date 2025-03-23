@@ -48,7 +48,7 @@ jobs:
         docker service create \
           --name scheduler \
           --network swecc-network \
-          --env-file .env \
+          --config scheduler_env\
           --replicas 1 \
           --restart-condition any \
           ${{ secrets.DOCKERHUB_USERNAME }}/swecc-scheduler:latest
