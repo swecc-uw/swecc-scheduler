@@ -27,18 +27,6 @@ jobs:
           ${{ secrets.DOCKERHUB_USERNAME }}/swecc-scheduler:latest
           ${{ secrets.DOCKERHUB_USERNAME }}/swecc-scheduler:${{ github.sha }}
     
-    - name: Initialize Swarm if needed
-      run: |
-        if ! docker info | grep -q "Swarm: active"; then
-          docker swarm init
-        fi
-
-    - name: Create or update network if needed
-      run: |
-        if ! docker network ls | grep -q "swecc-network"; then
-          docker network create --driver overlay --attachable swecc-network
-        fi
-
     - name: Deploy scheduler service
       run: |
         # Remove the existing service if it exists
@@ -47,7 +35,7 @@ jobs:
         # Create the service with environment variables
         docker service create \
           --name scheduler \
-          --network swecc-network \
+          --network swecc_stack_swecc-network \
           --config scheduler_env\
           --replicas 1 \
           --restart-condition any \
