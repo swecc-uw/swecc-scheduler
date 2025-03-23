@@ -37,7 +37,7 @@ jobs:
 
         # Deploy the service with the env file
         docker service create \
-          --name scheduler \
+          --name swecc_stack_scheduler \
           --network swecc-swecc_stack_swecc-network \
           --env-file env_file.txt \
           --replicas 1 \
