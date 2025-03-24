@@ -4,48 +4,118 @@ on:
     branches:
       - main
   workflow_dispatch:
-    # allow manual triggering and from API
 
 jobs:
-  build:
+  push_to_dockerhub:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/swecc-scheduler:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/swecc-scheduler:${{ github.sha }}
+
+  deploy_to_swarm:
     runs-on:
       group: EC2
       labels: [self-hosted, deploy]
+
+    needs: push_to_dockerhub
+
     steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v2
-    
-    - name: Log in to Docker Hub
-      uses: docker/login-action@v1
-      with:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_TOKEN }}
-    
-    - name: Build and push Docker image
-      uses: docker/build-push-action@v2
-      with:
-        context: .
-        push: true
-        tags: |
-          ${{ secrets.DOCKERHUB_USERNAME }}/swecc-scheduler:latest
-          ${{ secrets.DOCKERHUB_USERNAME }}/swecc-scheduler:${{ github.sha }}
+      - name: Checkout Repository
+        uses: actions/checkout@v2
 
-    - name: Deploy scheduler service
-      run: |
-        # Remove the existing service if it exists
-        docker service rm swecc_stack_scheduler || true
-        
-        # Extract environment variables from config
-        docker config inspect scheduler_env --pretty | sed -n '/Data:/,$ p' | sed '1d' > env_file.txt
+      - name: Login to Docker Hub on deployment server
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-        # Deploy the service with the env file
-        docker service create \
-          --name swecc_stack_scheduler \
-          --network swecc_stack_swecc-network \
-          --env-file env_file.txt \
-          --replicas 1 \
-          --restart-condition any \
-          ${{ secrets.DOCKERHUB_USERNAME }}/swecc-scheduler:latest
+      - name: Pull latest image
+        run: |
+          docker pull ${{ secrets.DOCKERHUB_USERNAME }}/swecc-scheduler:latest
 
-        # Clean up
-        rm env_file.txt
+      - name: Deploy scheduler service
+        run: |
+          if docker service ls | grep -q "scheduler"; then
+            docker service update \
+              --image ${{ secrets.DOCKERHUB_USERNAME }}/swecc-scheduler:latest \
+              --update-parallelism 1 \
+              --update-delay 30s \
+              --update-order start-first \
+              --update-failure-action continue \
+              --limit-cpu 0.1 \
+              --limit-memory 64M \
+              --with-registry-auth \
+              scheduler
+          else
+            docker service rm scheduler || true
+
+            docker config inspect scheduler_env --pretty | sed -n '/Data:/,$ p' | sed '1d' > env_file.txt || echo "No config found"
+
+            docker service create \
+              --name scheduler \
+              --network prod_swecc-network \
+              --env-file env_file.txt \
+              --replicas 1 \
+              --restart-condition any \
+              --update-parallelism 1 \
+              --update-delay 30s \
+              --update-order start-first \
+              --update-failure-action continue \
+              --limit-cpu 0.1 \
+              --limit-memory 64M \
+              --with-registry-auth \
+              ${{ secrets.DOCKERHUB_USERNAME }}/swecc-scheduler:latest
+
+            rm env_file.txt || true
+          fi
+
+      - name: Verify deployment
+        run: |
+          echo "Verifying deployment..."
+          timeout=300
+          elapsed=0
+
+          echo "Waiting 3 seconds before starting verification..."
+          sleep 3
+
+          while [ $elapsed -lt $timeout ]; do
+            REPLICAS=$(docker service ls --filter "name=scheduler" --format "{{.Replicas}}")
+            echo "Current replica status: $REPLICAS"
+
+            if [ "$REPLICAS" == "1/1" ]; then
+              echo "✅ Service deployed successfully"
+              exit 0
+            fi
+
+            echo "⏳ Waiting for service to be fully deployed... ($elapsed/$timeout seconds)"
+            sleep 10
+            elapsed=$((elapsed + 10))
+
+            echo "Current service status:"
+            docker service ps scheduler --no-trunc
+
+            if docker service ps scheduler --filter "desired-state=running" --format "{{.Error}}" | grep -q .; then
+              echo "⚠️ Deployment showing errors, but continuing to wait..."
+            fi
+          done
+
+          echo "❌ Deployment verification timed out after $timeout seconds"
+          echo "Final service status:"
+          docker service ps scheduler --no-trunc
+          exit 1
