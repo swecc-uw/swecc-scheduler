@@ -4,6 +4,16 @@ on:
     branches:
       - main
   workflow_dispatch:
+env:
+  SERVICE_NAME: "scheduler"
+  NETWORK: "prod_swecc-network"
+  CPU_LIMIT: "0.01"
+  MEMORY_LIMIT: "64M"
+  CPU_RESERVE: "0.01"
+  MEMORY_RESERVE: "32M"
+  IMAGE: "swecc-scheduler"
+  DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+  CONFIG_NAME: "scheduler_env"
 
 jobs:
   push_to_dockerhub:
@@ -25,8 +35,8 @@ jobs:
           context: .
           push: true
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/swecc-scheduler:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/swecc-scheduler:${{ github.sha }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE }}:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE }}:${{ github.sha }}
 
   deploy_to_swarm:
     runs-on:
@@ -34,17 +44,6 @@ jobs:
       labels: [self-hosted, deploy]
 
     needs: push_to_dockerhub
-
-    env:
-      SERVICE_NAME: "scheduler"
-      NETWORK: "prod_swecc-network"
-      CPU_LIMIT: "0.01"
-      MEMORY_LIMIT: "64M"
-      CPU_RESERVE: "0.01"
-      MEMORY_RESERVE: "32M"
-      IMAGE: "swecc-scheduler:latest"
-      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-      CONFIG_NAME: "scheduler_env"
 
     steps:
       - name: Checkout Repository
@@ -58,7 +57,7 @@ jobs:
 
       - name: Pull latest image
         run: |
-          docker pull ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE }}
+          docker pull ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE }}:latest
 
       - name: Prepare environment file
         run: |
@@ -92,7 +91,7 @@ jobs:
             --reserve-cpu ${{ env.CPU_RESERVE }} \
             --reserve-memory ${{ env.MEMORY_RESERVE }} \
             --with-registry-auth \
-            ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE }}
+            ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE }}:latest
 
           echo "New service is healthy - promoting staging service to production"
           docker service update \
@@ -124,7 +123,7 @@ jobs:
             --reserve-cpu ${{ env.CPU_RESERVE }} \
             --reserve-memory ${{ env.MEMORY_RESERVE }} \
             --with-registry-auth \
-            ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE }}
+            ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE }}:latest
 
       - name: Cleanup
         run: |
